@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Header
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Optional
@@ -18,6 +18,11 @@ app.add_middleware(
 HF_TOKEN = os.getenv("HF_TOKEN", "")
 SUPABASE_URL = os.getenv("SUPABASE_URL", "")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY", "")
+API_KEY = os.getenv("API_KEY", "")
+
+def verify_api_key(x_api_key: str = Header(default="")):
+    if API_KEY and x_api_key != API_KEY:
+        raise HTTPException(status_code=401, detail="Unauthorized")
 
 # ─── Vibe Profiles ────────────────────────────────────────────────────────────
 VIBE_PROFILES = {
@@ -314,15 +319,18 @@ def root():
     return {"status": "sarcast.ai is running. Took you long enough."}
 
 @app.get("/vibes")
-def get_vibes():
+def get_vibes(x_api_key: str = Header(default="")):
+    verify_api_key(x_api_key)
     return {k: v["label"] for k, v in VIBE_PROFILES.items()}
 
 @app.get("/models")
-def get_models():
+def get_models(x_api_key: str = Header(default="")):
+    verify_api_key(x_api_key)
     return list(MODELS.keys())
 
 @app.get("/jokes")
-def get_jokes():
+def get_jokes(x_api_key: str = Header(default="")):
+    verify_api_key(x_api_key)
     # Return 3 jokes: one dry, one savage, one from the rest randomly
     import random
     fixed = ["dry", "savage"]
@@ -333,14 +341,16 @@ def get_jokes():
     return selected
 
 @app.get("/profile/{session_id}")
-async def get_user_profile(session_id: str):
+async def get_user_profile(session_id: str, x_api_key: str = Header(default="")):
+    verify_api_key(x_api_key)
     profile = await get_profile(session_id)
     if not profile:
         return {"exists": False}
     return {"exists": True, **profile}
 
 @app.post("/onboarding")
-async def onboarding(req: OnboardingRequest):
+async def onboarding(req: OnboardingRequest, x_api_key: str = Header(default="")):
+    verify_api_key(x_api_key)
     answers = {k: getattr(req, k) for k in ["q1","q2","q3","q4","q5","q6"]}
     vibe, intensity, cues = detect_vibe_from_onboarding(answers, req.joke_ratings)
 
@@ -361,7 +371,8 @@ async def onboarding(req: OnboardingRequest):
     }
 
 @app.post("/adapt-vibe")
-async def adapt_vibe(req: AdaptVibeRequest):
+async def adapt_vibe(req: AdaptVibeRequest, x_api_key: str = Header(default="")):
+    verify_api_key(x_api_key)
     new_vibe, updated_cues = accumulate_cues(req.existing_cues, req.history, req.current_vibe)
 
     # Update confidence based on cue count
@@ -383,7 +394,8 @@ async def adapt_vibe(req: AdaptVibeRequest):
     }
 
 @app.post("/chat")
-async def chat(req: ChatRequest):
+async def chat(req: ChatRequest, x_api_key: str = Header(default="")):
+    verify_api_key(x_api_key)
     if req.vibe not in VIBE_PROFILES:
         raise HTTPException(status_code=400, detail="Unknown vibe")
     if req.model not in MODELS:

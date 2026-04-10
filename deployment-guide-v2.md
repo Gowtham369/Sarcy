@@ -15,8 +15,6 @@
 sarcast-ai/
 ├── backend/
 │   ├── main.py
-│   ├── requirements.txt
-│   ├── railway.toml
 │   └── .env.example
 ├── frontend/
 │   ├── index.html
@@ -32,6 +30,8 @@ sarcast-ai/
 │           ├── OnboardingQuiz.css
 │           ├── ChatWindow.jsx
 │           └── ChatWindow.css
+├── requirements.txt
+├── railway.toml
 └── supabase_schema.sql
 ```
 
@@ -53,11 +53,12 @@ sarcast-ai/
 3. Wait ~2 minutes for it to spin up
 4. Go to **SQL Editor** in the left sidebar
 5. Paste the entire contents of `supabase_schema.sql` and click **Run**
-6. Go to **Settings → API**
-7. Copy two things:
-   - **Project URL** — looks like `https://xxxx.supabase.co`
-   - **anon public key** — long string starting with `eyJ...`
-8. Save both — you'll need them in the next step
+6. Go to **Settings → API Keys**
+7. Click the **Publishable and secret API keys** tab
+8. Copy two things:
+   - **Project URL** — find it via the **Connect** button at the top, looks like `https://xxxx.supabase.co`
+   - **anon public key** — click the `anon public` row to reveal the full `eyJ...` string
+9. Save both — you'll need them in the next step
 
 ---
 
@@ -70,21 +71,27 @@ sarcast-ai/
 
 ---
 
-## STEP 4 — Railway (Backend — Free)
+## STEP 4 — Render (Backend — Free)
 
-1. Go to **railway.app** → Sign up with GitHub
-2. Click **New Project** → **Deploy from GitHub repo**
-3. Select your `sarcast-ai` repo
-4. Set **Root Directory** to `backend`
-5. Go to **Variables** tab and add ALL of these:
+1. Go to **render.com** → Sign up with GitHub
+2. Click **New** → **Web Service**
+3. Connect your `sarcast-ai` repo
+4. Fill in the settings:
+   - **Name:** `sarcast-ai-backend`
+   - **Root Directory:** `backend`
+   - **Runtime:** Python 3
+   - **Build Command:** `pip install -r ../requirements.txt`
+   - **Start Command:** `uvicorn main:app --host 0.0.0.0 --port $PORT`
+5. Scroll to **Environment Variables** and add:
    ```
    HF_TOKEN         = hf_your_token_here
    SUPABASE_URL     = https://xxxx.supabase.co
    SUPABASE_KEY     = eyJ...your_anon_key...
    ```
-6. Click **Deploy** — wait ~2 minutes
-7. Go to **Settings → Networking → Generate Domain**
-8. Copy your backend URL e.g. `https://sarcast-ai-production.up.railway.app`
+6. Click **Create Web Service** — wait ~3 minutes
+7. Copy your backend URL e.g. `https://sarcast-ai-backend.onrender.com`
+
+> **Note:** Free tier spins down after 15 min of inactivity. First request after sleep takes ~30–50 seconds to wake up — this is normal.
 
 ---
 
@@ -95,7 +102,7 @@ sarcast-ai/
 3. Set **Root Directory** to `frontend`
 4. Under **Environment Variables** add:
    ```
-   VITE_BACKEND_URL = https://your-backend.railway.app
+   VITE_BACKEND_URL = https://your-backend.onrender.com
    ```
 5. Click **Deploy** — ~1 minute
 6. You get a URL like `sarcast-ai.vercel.app` — that's your live app
@@ -168,7 +175,7 @@ Every 5 messages →
 | GitHub | $0 |
 | Supabase (database) | $0 free tier |
 | Hugging Face (models) | $0 free tier |
-| Railway (backend) | $0 free tier |
+| Render (backend) | $0 free tier |
 | Vercel (frontend) | $0 |
 | **Total** | **$0/month** |
 
@@ -178,10 +185,10 @@ When you grow → move backend to Hetzner VPS ~$5/month.
 
 ## Troubleshooting
 
-**Returning user not recognised** → Check SUPABASE_URL and SUPABASE_KEY are set correctly in Railway variables.
+**Returning user not recognised** → Check SUPABASE_URL and SUPABASE_KEY are set correctly in Render environment variables.
 
-**Onboarding submits but vibe not saved** → Check Railway logs for Supabase connection errors.
+**Onboarding submits but vibe not saved** → Check Render logs for Supabase connection errors.
 
-**Model slow to respond** → Normal on HF free tier. First request wakes the model (~20s). Add HF_TOKEN to speed it up.
+**Model slow to respond** → Normal on HF free tier. First request wakes the model (~20s). Make sure HF_TOKEN is set in Render environment variables.
 
-**Railway app sleeping** → Free tier sleeps after inactivity. First request wakes it (~10s delay).
+**Backend not responding / very slow first load** → Render free tier spins down after 15 min of inactivity. First request after sleep takes ~30–50 seconds — this is expected. Subsequent requests are fast.

@@ -4,6 +4,8 @@ import ChatWindow from "./components/ChatWindow";
 import "./App.css";
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:8000";
+const API_KEY = import.meta.env.VITE_API_KEY || "";
+const authHeaders = { "Content-Type": "application/json", "x-api-key": API_KEY };
 
 // Generate or retrieve a persistent session ID
 function getSessionId() {
@@ -29,13 +31,13 @@ export default function App() {
 
   useEffect(() => {
     // Load models
-    fetch(`${BACKEND_URL}/models`)
+    fetch(`${BACKEND_URL}/models`, { headers: authHeaders })
       .then(r => r.json())
       .then(setModels)
       .catch(() => setModels(["mistral-7b"]));
 
     // Check if returning user has a profile
-    fetch(`${BACKEND_URL}/profile/${sessionId}`)
+    fetch(`${BACKEND_URL}/profile/${sessionId}`, { headers: authHeaders })
       .then(r => r.json())
       .then(data => {
         if (data.exists) {
@@ -55,7 +57,7 @@ export default function App() {
     try {
       const res = await fetch(`${BACKEND_URL}/onboarding`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: authHeaders,
         body: JSON.stringify({ ...answers, joke_ratings: jokeRatings, session_id: sessionId }),
       });
       const data = await res.json();
@@ -83,7 +85,7 @@ export default function App() {
       if (newHistory.filter(m => m.role === "user").length % 5 === 0) {
         const adaptRes = await fetch(`${BACKEND_URL}/adapt-vibe`, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: authHeaders,
           body: JSON.stringify({
             history: newHistory,
             current_vibe: vibe,
@@ -103,7 +105,7 @@ export default function App() {
 
       const res = await fetch(`${BACKEND_URL}/chat`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: authHeaders,
         body: JSON.stringify({
           message,
           vibe: currentVibe,
