@@ -105,10 +105,10 @@ CALIBRATION_JOKES = [
 
 # ─── Models ───────────────────────────────────────────────────────────────────
 MODELS = {
-    "mistral-7b": "mistralai/Mistral-7B-Instruct-v0.2",
-    "llama-2-7b": "meta-llama/Llama-2-7b-chat-hf",
-    "gemma-7b": "google/gemma-7b-it",
     "zephyr-7b": "HuggingFaceH4/zephyr-7b-beta",
+    "mistral-7b": "mistralai/Mistral-7B-Instruct-v0.3",
+    "phi-3": "microsoft/Phi-3-mini-4k-instruct",
+    "llama-3": "meta-llama/Meta-Llama-3-8B-Instruct",
 }
 
 # ─── Supabase helpers ─────────────────────────────────────────────────────────
@@ -300,7 +300,7 @@ class OnboardingRequest(BaseModel):
 class ChatRequest(BaseModel):
     message: str
     vibe: str = "dry"
-    model: str = "mistral-7b"
+    model: str = "zephyr-7b"
     history: list = []
     session_id: str = ""
     cues: list = []
