@@ -21,7 +21,7 @@ export default function App() {
   const [phase, setPhase] = useState("loading"); // loading | onboarding | chat
   const [vibe, setVibe] = useState("dry");
   const [vibeLabel, setVibeLabel] = useState("");
-  const [model, setModel] = useState("mistral-7b");
+  const [model, setModel] = useState("zephyr-7b");
   const [models, setModels] = useState([]);
   const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -34,7 +34,7 @@ export default function App() {
     fetch(`${BACKEND_URL}/models`, { headers: authHeaders })
       .then(r => r.json())
       .then(setModels)
-      .catch(() => setModels(["mistral-7b"]));
+      .catch(() => setModels(["zephyr-7b"]));
 
     // Check if returning user has a profile
     fetch(`${BACKEND_URL}/profile/${sessionId}`, { headers: authHeaders })

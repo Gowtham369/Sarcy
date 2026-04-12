@@ -122,6 +122,8 @@ async def get_profile(session_id: str) -> dict | None:
     }
     async with httpx.AsyncClient() as client:
         res = await client.get(url, headers=headers)
+        if res.status_code != 200:
+            return None
         data = res.json()
         return data[0] if data else None
 
@@ -223,7 +225,7 @@ def accumulate_cues(existing_cues: list, messages: list, current_vibe: str) -> t
     if len(messages) < 3:
         return current_vibe, existing_cues
 
-    recent = [m["content"].lower() for m in messages[-8:] if m["role"] == "user"]
+    recent = [m["content"].lower() for m in messages[-8:] if m.get("role") == "user" and m.get("content")]
     text = " ".join(recent)
     new_cues = []
     scores = {v: 0 for v in VIBE_PROFILES}
@@ -427,6 +429,8 @@ async def chat(req: ChatRequest, x_api_key: str = Header(default="")):
 
     history_text = ""
     for msg in req.history[-6:]:
+        if not msg.get("content"):
+            continue
         role = "User" if msg["role"] == "user" else "Assistant"
         history_text += f"{role}: {msg['content']}\n"
 
@@ -445,13 +449,19 @@ async def chat(req: ChatRequest, x_api_key: str = Header(default="")):
         }
     }
 
-    async with httpx.AsyncClient(timeout=60.0) as client:
+    async with httpx.AsyncClient(timeout=90.0) as client:
         try:
             resp = await client.post(api_url, json=payload, headers=headers)
             resp.raise_for_status()
             data = resp.json()
             reply = data[0].get("generated_text", "").strip() if isinstance(data, list) and data else "Even I'm speechless. That's new."
-        except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Model error: {str(e)}")
+            if not reply:
+                reply = "Even I'm speechless. That's new."
+        except httpx.TimeoutException:
+            raise HTTPException(status_code=503, detail="Model is waking up, try again in a few seconds.")
+        except httpx.HTTPStatusError as e:
+            raise HTTPException(status_code=502, detail=f"Model unavailable: {e.response.status_code}")
+        except Exception:
+            raise HTTPException(status_code=500, detail="Something went wrong. Even I'm surprised.")
 
     return {"reply": reply, "vibe": req.vibe, "model": req.model}
