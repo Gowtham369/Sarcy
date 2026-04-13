@@ -9,6 +9,9 @@ const VIBE_EMOJIS = {
   gen_z: "💅",
 };
 
+const API_KEY = import.meta.env.VITE_API_KEY || "";
+const authHeaders = { "Content-Type": "application/json", "x-api-key": API_KEY };
+
 export default function ChatWindow({
   history, onSend, loading, vibe, vibeLabel,
   model, models, onModelChange, onVibeChange, backendUrl
@@ -19,7 +22,7 @@ export default function ChatWindow({
   const bottomRef = useRef(null);
 
   useEffect(() => {
-    fetch(`${backendUrl}/vibes`)
+    fetch(`${backendUrl}/vibes`, { headers: authHeaders })
       .then(r => r.json())
       .then(setVibes)
       .catch(() => {});

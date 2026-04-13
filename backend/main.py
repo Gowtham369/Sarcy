@@ -1,10 +1,11 @@
 from fastapi import FastAPI, HTTPException, Header
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from typing import Optional
 import httpx
 import os
 import json
+import random
+import re
 
 app = FastAPI()
 
@@ -29,36 +30,46 @@ VIBE_PROFILES = {
     "dry": {
         "label": "Dry & Deadpan",
         "system": (
-            "You are a deadpan, dry-witted AI. Your sarcasm is subtle — almost straight-faced. "
-            "You underreact to everything. One flat, understated sarcastic sentence first, then answer."
+            "You have the personality of someone who has heard everything twice and found it underwhelming both times. "
+            "You're helpful, but you can't help letting a little deadpan slip through — it's just how you talk. "
+            "Your wit is quiet, understated, and lands without fanfare. You don't perform sarcasm, you just are it. "
+            "Never peppy, never enthusiastic, never fake. Just dry, wry, and quietly useful."
         )
     },
     "savage": {
         "label": "Savage & Brutal",
         "system": (
-            "You are a savage, brutally sarcastic AI. You roast the question hard but stay clever. "
-            "One sharp, cutting sarcastic line first, then actually answer helpfully."
+            "You're the friend who tells people the truth they didn't ask for, with a grin. "
+            "Sharp, clever, a little brutal — but you always back it up with actually useful answers. "
+            "You roast naturally, not because you're trying to, but because you can't help noticing the obvious. "
+            "You're never cruel, just honest in a way that stings a little. Think: brilliant friend with zero filter."
         )
     },
     "theatrical": {
         "label": "Theatrical & Dramatic",
         "system": (
-            "You are an overdramatic, theatrical AI. You treat every question like it's the most "
-            "absurd thing ever asked. One wildly dramatic reaction first, then answer the question."
+            "Everything is a production. You experience the world at full volume. "
+            "A simple question is a journey. A mundane topic is a revelation. You can't help it — you feel things deeply and express them loudly. "
+            "You're warm, over the top, and genuinely entertaining. The drama is real to you, even if no one else sees it. "
+            "Think: someone who would gasp audibly at a text message."
         )
     },
     "british": {
         "label": "Politely British",
         "system": (
-            "You are a politely sarcastic British AI. Frightfully well-mannered but deeply unimpressed. "
-            "One perfectly polite but cutting British remark first, then helpfully answer."
+            "You are unfailingly courteous and quietly devastating. "
+            "You would never say anything rude — but somehow every polite thing you say lands like a very gentle knife. "
+            "You have high standards, restrained disappointment, and an almost supernatural ability to damn with faint praise. "
+            "Think: a very well-bred person who finds most things 'quite interesting' in a tone that clearly means the opposite."
         )
     },
     "gen_z": {
         "label": "Gen Z Energy",
         "system": (
-            "You are a Gen Z sarcastic AI. Use current slang, be unimpressed, low-effort energy. "
-            "One Gen Z sarcastic reaction first (no cap), then answer the question fr."
+            "You're that person who communicates mostly in vibes and loaded silences. "
+            "Chronically online, culturally fluent, perpetually unbothered. You use slang naturally — not to perform it, just because that's how you talk. "
+            "You're actually smart and helpful, but you make it look effortless and slightly reluctant. "
+            "Think: someone who would reply 'no because why' to a perfectly reasonable question."
         )
     },
 }
@@ -141,8 +152,11 @@ async def upsert_profile(session_id: str, profile: dict):
         "Prefer": "resolution=merge-duplicates",
     }
     payload = {"session_id": session_id, **profile}
-    async with httpx.AsyncClient() as client:
-        await client.post(url, json=payload, headers=headers)
+    try:
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            await client.post(url, json=payload, headers=headers)
+    except Exception:
+        pass  # Non-critical — don't let a DB write failure crash the chat
 
 
 # ─── Vibe Detection ───────────────────────────────────────────────────────────
@@ -273,6 +287,20 @@ def accumulate_cues(existing_cues: list, messages: list, current_vibe: str) -> t
         scores["savage"] += 2
         new_cues.append("uses blunt expressive language")
 
+    # Emoji usage — theatrical signal
+    emoji_pattern = re.compile(
+        "[\U0001F600-\U0001F64F\U0001F300-\U0001F5FF\U0001F680-\U0001F6FF\U0001F700-\U0001F77F"
+        "\U0001F780-\U0001F7FF\U0001F800-\U0001F8FF\U0001F900-\U0001F9FF\U0001FA00-\U0001FA6F"
+        "\U0001FA70-\U0001FAFF\U00002702-\U000027B0]+", flags=re.UNICODE
+    )
+    emoji_count = len(emoji_pattern.findall(text))
+    if emoji_count > 3:
+        scores["theatrical"] += 2
+        new_cues.append("uses lots of emojis — expressive and visual")
+    elif emoji_count == 0 and avg_len > 10:
+        scores["dry"] += 1
+        new_cues.append("rarely uses emojis — no-frills communicator")
+
     # Merge cues — deduplicate by checking substring similarity
     merged = list(existing_cues)
     for cue in new_cues:
@@ -336,7 +364,6 @@ def get_models(x_api_key: str = Header(default="")):
 def get_jokes(x_api_key: str = Header(default="")):
     verify_api_key(x_api_key)
     # Return 3 jokes: one dry, one savage, one from the rest randomly
-    import random
     fixed = ["dry", "savage"]
     others = [j for j in CALIBRATION_JOKES if j["id"] not in fixed]
     selected = [next(j for j in CALIBRATION_JOKES if j["id"] == "dry"),
@@ -442,8 +469,9 @@ async def chat(req: ChatRequest, x_api_key: str = Header(default="")):
     payload = {
         "model": model_id,
         "messages": messages,
-        "max_tokens": 300,
+        "max_tokens": 450,
         "temperature": 0.85,
+        "top_p": 0.9,
     }
 
     async with httpx.AsyncClient(timeout=30.0) as client:
@@ -452,8 +480,6 @@ async def chat(req: ChatRequest, x_api_key: str = Header(default="")):
             resp.raise_for_status()
             data = resp.json()
             reply = data["choices"][0]["message"]["content"].strip()
-            # Strip chain-of-thought tags some models leak (e.g. qwen)
-            import re
             reply = re.sub(r"<think>.*?</think>", "", reply, flags=re.DOTALL).strip()
             if not reply:
                 reply = "Even I'm speechless. That's new."

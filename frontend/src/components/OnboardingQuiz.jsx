@@ -82,8 +82,10 @@ export default function OnboardingQuiz({ onComplete, backendUrl }) {
   const [currentJoke, setCurrentJoke] = useState(0);
   const [hoveredRating, setHoveredRating] = useState(null);
 
+  const authHeaders = { "Content-Type": "application/json", "x-api-key": import.meta.env.VITE_API_KEY || "" };
+
   useEffect(() => {
-    fetch(`${backendUrl}/jokes`)
+    fetch(`${backendUrl}/jokes`, { headers: authHeaders })
       .then(r => r.json())
       .then(setJokes)
       .catch(() => setJokes([
