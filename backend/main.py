@@ -15,7 +15,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-HF_TOKEN = os.getenv("HF_TOKEN", "")
+GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
 SUPABASE_URL = os.getenv("SUPABASE_URL", "")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY", "")
 API_KEY = os.getenv("API_KEY", "")
@@ -105,10 +105,10 @@ CALIBRATION_JOKES = [
 
 # ─── Models ───────────────────────────────────────────────────────────────────
 MODELS = {
-    "zephyr-7b": "HuggingFaceH4/zephyr-7b-beta",
-    "mistral-7b": "mistralai/Mistral-7B-Instruct-v0.3",
-    "phi-3": "microsoft/Phi-3-mini-4k-instruct",
-    "llama-3": "meta-llama/Meta-Llama-3-8B-Instruct",
+    "llama-3-8b": "llama3-8b-8192",
+    "llama-3-70b": "llama3-70b-8192",
+    "mixtral-8x7b": "mixtral-8x7b-32768",
+    "gemma-7b": "gemma-7b-it",
 }
 
 # ─── Supabase helpers ─────────────────────────────────────────────────────────
@@ -302,7 +302,7 @@ class OnboardingRequest(BaseModel):
 class ChatRequest(BaseModel):
     message: str
     vibe: str = "dry"
-    model: str = "zephyr-7b"
+    model: str = "llama-3-70b"
     history: list = []
     session_id: str = ""
     cues: list = []
@@ -425,40 +425,35 @@ async def chat(req: ChatRequest, x_api_key: str = Header(default="")):
     )
 
     model_id = MODELS[req.model]
-    api_url = f"https://api-inference.huggingface.co/models/{model_id}"
 
-    history_text = ""
+    messages = [{"role": "system", "content": system_prompt}]
     for msg in req.history[-6:]:
         if not msg.get("content"):
             continue
-        role = "User" if msg["role"] == "user" else "Assistant"
-        history_text += f"{role}: {msg['content']}\n"
+        messages.append({"role": msg["role"], "content": msg["content"]})
+    messages.append({"role": "user", "content": req.message})
 
-    prompt = f"<s>[INST] <<SYS>>\n{system_prompt}\n<</SYS>>\n\n{history_text}User: {req.message} [/INST]"
-
-    headers = {"Content-Type": "application/json"}
-    if HF_TOKEN:
-        headers["Authorization"] = f"Bearer {HF_TOKEN}"
-
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {GROQ_API_KEY}",
+    }
     payload = {
-        "inputs": prompt,
-        "parameters": {
-            "max_new_tokens": 300,
-            "temperature": 0.85,
-            "return_full_text": False,
-        }
+        "model": model_id,
+        "messages": messages,
+        "max_tokens": 300,
+        "temperature": 0.85,
     }
 
-    async with httpx.AsyncClient(timeout=90.0) as client:
+    async with httpx.AsyncClient(timeout=30.0) as client:
         try:
-            resp = await client.post(api_url, json=payload, headers=headers)
+            resp = await client.post("https://api.groq.com/openai/v1/chat/completions", json=payload, headers=headers)
             resp.raise_for_status()
             data = resp.json()
-            reply = data[0].get("generated_text", "").strip() if isinstance(data, list) and data else "Even I'm speechless. That's new."
+            reply = data["choices"][0]["message"]["content"].strip()
             if not reply:
                 reply = "Even I'm speechless. That's new."
         except httpx.TimeoutException:
-            raise HTTPException(status_code=503, detail="Model is waking up, try again in a few seconds.")
+            raise HTTPException(status_code=503, detail="Model timed out, try again.")
         except httpx.HTTPStatusError as e:
             raise HTTPException(status_code=502, detail=f"Model unavailable: {e.response.status_code}")
         except Exception:
