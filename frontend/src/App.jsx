@@ -21,7 +21,7 @@ export default function App() {
   const [phase, setPhase] = useState("loading"); // loading | onboarding | chat
   const [vibe, setVibe] = useState("dry");
   const [vibeLabel, setVibeLabel] = useState("");
-  const [model, setModel] = useState("zephyr-7b");
+  const [model, setModel] = useState("llama-3.3-70b");
   const [models, setModels] = useState([]);
   const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(false);
