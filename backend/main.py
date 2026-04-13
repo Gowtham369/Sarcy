@@ -108,7 +108,9 @@ MODELS = {
     "llama-3.3-70b": "llama-3.3-70b-versatile",
     "llama-3.1-8b": "llama-3.1-8b-instant",
     "llama-4-scout": "meta-llama/llama-4-scout-17b-16e-instruct",
-    "qwen3-32b": "qwen/qwen3-32b",
+    "kimi-k2": "moonshotai/kimi-k2-instruct",
+    "kimi-k2-0905": "moonshotai/kimi-k2-instruct-0905",
+    "groq-compound": "groq/compound",
 }
 
 # ─── Supabase helpers ─────────────────────────────────────────────────────────
@@ -450,6 +452,9 @@ async def chat(req: ChatRequest, x_api_key: str = Header(default="")):
             resp.raise_for_status()
             data = resp.json()
             reply = data["choices"][0]["message"]["content"].strip()
+            # Strip chain-of-thought tags some models leak (e.g. qwen)
+            import re
+            reply = re.sub(r"<think>.*?</think>", "", reply, flags=re.DOTALL).strip()
             if not reply:
                 reply = "Even I'm speechless. That's new."
         except httpx.TimeoutException:
