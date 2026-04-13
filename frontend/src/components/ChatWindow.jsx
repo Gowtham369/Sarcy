@@ -98,9 +98,6 @@ export default function ChatWindow({
         {history.map((msg, i) => (
           <div key={i} className={`message message-${msg.role}`}>
             <div className="message-bubble">
-              {msg.role === "assistant" && (
-                <span className="message-vibe">{VIBE_EMOJIS[vibe]}</span>
-              )}
               <p>{msg.content}</p>
             </div>
           </div>
