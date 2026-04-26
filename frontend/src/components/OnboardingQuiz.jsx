@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { fetchWithTimeout } from "../fetchWithTimeout";
 import "./OnboardingQuiz.css";
 
 const QUESTIONS = [
@@ -85,7 +86,7 @@ export default function OnboardingQuiz({ onComplete, backendUrl }) {
   const authHeaders = { "Content-Type": "application/json", "x-api-key": import.meta.env.VITE_API_KEY || "" };
 
   useEffect(() => {
-    fetch(`${backendUrl}/jokes`, { headers: authHeaders })
+    fetchWithTimeout(`${backendUrl}/jokes`, { headers: authHeaders }, 5000)
       .then(r => r.json())
       .then(setJokes)
       .catch(() => setJokes([

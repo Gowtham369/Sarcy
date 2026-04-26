@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import OnboardingQuiz from "./components/OnboardingQuiz";
 import ChatWindow from "./components/ChatWindow";
+import { fetchWithTimeout } from "./fetchWithTimeout";
 import "./App.css";
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:8000";
@@ -31,13 +32,13 @@ export default function App() {
 
   useEffect(() => {
     // Load models
-    fetch(`${BACKEND_URL}/models`, { headers: authHeaders })
+    fetchWithTimeout(`${BACKEND_URL}/models`, { headers: authHeaders }, 5000)
       .then(r => r.json())
       .then(setModels)
       .catch(() => setModels(["zephyr-7b"]));
 
     // Check if returning user has a profile
-    fetch(`${BACKEND_URL}/profile/${sessionId}`, { headers: authHeaders })
+    fetchWithTimeout(`${BACKEND_URL}/profile/${sessionId}`, { headers: authHeaders }, 5000)
       .then(r => r.json())
       .then(data => {
         if (data.exists) {
@@ -55,11 +56,11 @@ export default function App() {
 
   const handleOnboardingComplete = async (answers, jokeRatings) => {
     try {
-      const res = await fetch(`${BACKEND_URL}/onboarding`, {
+      const res = await fetchWithTimeout(`${BACKEND_URL}/onboarding`, {
         method: "POST",
         headers: authHeaders,
         body: JSON.stringify({ ...answers, joke_ratings: jokeRatings, session_id: sessionId }),
-      });
+      }, 5000);
       const data = await res.json();
       setVibe(data.vibe);
       setVibeLabel(data.label);
@@ -83,7 +84,7 @@ export default function App() {
       let currentCues = cues;
       let currentVibe = vibe;
       if (newHistory.filter(m => m.role === "user").length % 5 === 0) {
-        const adaptRes = await fetch(`${BACKEND_URL}/adapt-vibe`, {
+        const adaptRes = await fetchWithTimeout(`${BACKEND_URL}/adapt-vibe`, {
           method: "POST",
           headers: authHeaders,
           body: JSON.stringify({
@@ -92,7 +93,7 @@ export default function App() {
             session_id: sessionId,
             existing_cues: cues,
           }),
-        });
+        }, 15000);
         const adaptData = await adaptRes.json();
         currentCues = adaptData.cues;
         currentVibe = adaptData.vibe;
@@ -103,7 +104,7 @@ export default function App() {
         }
       }
 
-      const res = await fetch(`${BACKEND_URL}/chat`, {
+      const res = await fetchWithTimeout(`${BACKEND_URL}/chat`, {
         method: "POST",
         headers: authHeaders,
         body: JSON.stringify({
@@ -115,7 +116,7 @@ export default function App() {
           cues: currentCues,
           sarcasm_intensity: sarcasmIntensity,
         }),
-      });
+      }, 15000);
       const data = await res.json();
       setHistory([...newHistory, { role: "assistant", content: data.reply }]);
     } catch {

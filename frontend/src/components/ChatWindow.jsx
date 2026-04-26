@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import { fetchWithTimeout } from "../fetchWithTimeout";
 import "./ChatWindow.css";
 
 const VIBE_EMOJIS = {
@@ -22,7 +23,7 @@ export default function ChatWindow({
   const bottomRef = useRef(null);
 
   useEffect(() => {
-    fetch(`${backendUrl}/vibes`, { headers: authHeaders })
+    fetchWithTimeout(`${backendUrl}/vibes`, { headers: authHeaders }, 5000)
       .then(r => r.json())
       .then(setVibes)
       .catch(() => {});
