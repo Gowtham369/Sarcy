@@ -11,7 +11,7 @@ const authHeaders = { "Content-Type": "application/json", "x-api-key": API_KEY }
 function getSessionId() {
   let id = localStorage.getItem("sarcast_session_id");
   if (!id) {
-    id = "user_" + Math.random().toString(36).substr(2, 12);
+    id = crypto.randomUUID();
     localStorage.setItem("sarcast_session_id", id);
   }
   return id;
