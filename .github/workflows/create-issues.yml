@@ -1,0 +1,142 @@
+name: Create Project Issues
+
+on:
+  workflow_dispatch:
+
+jobs:
+  create-issues:
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    steps:
+      - name: Create issues
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const issues = [
+              // TIER 1 - Security
+              {
+                title: "[Security] URL-encode session_id in Supabase queries",
+                body: `**File:** \`backend/main.py:194\`\n\n**Problem:** Session ID is directly interpolated into the Supabase REST API URL without URL encoding. Special characters in session_id could break queries.\n\n**Fix:** Wrap session_id with \`urllib.parse.quote()\` before inserting into URLs.\n\n\`\`\`python\nfrom urllib.parse import quote\nurl = f"{SUPABASE_URL}/rest/v1/vibe_profiles?session_id=eq.{quote(session_id)}"\n\`\`\`\n\n@claude Please implement this fix.`,
+                labels: ["security", "bug"]
+              },
+              {
+                title: "[Security] Remove API key from frontend bundle",
+                body: `**Files:** \`frontend/src/App.jsx:7\`, \`ChatWindow.jsx:12\`, \`OnboardingQuiz.jsx:85\`\n\n**Problem:** \`VITE_API_KEY\` is embedded in the frontend JavaScript bundle and visible to anyone who inspects source. This exposes the key publicly.\n\n**Fix:** Move API key validation entirely to the backend. The frontend should authenticate via session ID only — the backend already rate-limits by IP.\n\nRemove \`VITE_API_KEY\` usage from frontend components and add backend-side session validation if needed.\n\n@claude Please implement this fix.`,
+                labels: ["security", "bug"]
+              },
+              {
+                title: "[Security] Restrict CORS to known origins by default",
+                body: `**File:** \`backend/main.py:26-30\`\n\n**Problem:** \`allow_origins="*"\` is the fallback when \`ALLOWED_ORIGINS\` env var is not set. This allows any domain to call the API.\n\n**Fix:** Change the default to \`[]\` (empty list) so CORS must be explicitly configured. Update \`.env.example\` with the Vercel domain.\n\n@claude Please implement this fix.`,
+                labels: ["security", "enhancement"]
+              },
+              {
+                title: "[Security] Validate session_id format as UUID",
+                body: `**File:** \`backend/main.py\` - all endpoints accepting \`session_id\`\n\n**Problem:** Session IDs are passed to Supabase without format validation. Any arbitrary string is accepted, which is a potential injection vector.\n\n**Fix:** Add a UUID validator using regex or Pydantic before any Supabase query:\n\`\`\`python\nimport re\nUUID_RE = re.compile(r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$')\nif not UUID_RE.match(session_id):\n    raise HTTPException(400, "Invalid session ID")\n\`\`\`\n\n@claude Please implement this fix.`,
+                labels: ["security", "bug"]
+              },
+
+              // TIER 2 - Critical Bugs
+              {
+                title: "[Bug] Chat sends stale history — new message missing from context",
+                body: `**File:** \`frontend/src/App.jsx:113\`\n\n**Problem:** When sending a chat message, the frontend builds \`newHistory\` (which includes the new user message) but passes the old \`history\` state to the \`/chat\` endpoint. The new message is missing from what Claude sees.\n\n**Fix:** Change line 113 to pass \`newHistory\` instead of \`history\`.\n\n@claude Please implement this fix.`,
+                labels: ["bug", "critical"]
+              },
+              {
+                title: "[Bug] Silent error swallowing hides failures from users",
+                body: `**File:** \`frontend/src/App.jsx:36-37, 52-53, 68-72, 121-125\`\n\n**Problem:** Multiple \`.catch()\` blocks silently fall back without notifying the user or logging the error. Users have no idea something went wrong.\n\n**Fix:**\n1. Add \`console.error\` in all catch blocks\n2. Show a visible error toast/message when chat fails (line 121-125)\n3. On vibe detection failure (line 68-72), show a subtle indicator\n\n@claude Please implement this fix with a simple inline error message in the UI.`,
+                labels: ["bug", "ux"]
+              },
+              {
+                title: "[Bug] Vibe change in dropdown not saved to backend",
+                body: `**File:** \`frontend/src/components/ChatWindow.jsx:68\`\n\n**Problem:** When the user manually changes their vibe in the dropdown selector, the selection is only stored in local React state. On next session load, the vibe reverts to the backend-detected one.\n\n**Fix:** When the user changes the vibe dropdown, call \`POST /adapt-vibe\` with the new vibe and \`confidence: 1.0\` to persist the manual override.\n\n@claude Please implement this fix.`,
+                labels: ["bug", "ux"]
+              },
+              {
+                title: "[Bug] Race condition in vibe adaptation trigger",
+                body: `**File:** \`frontend/src/App.jsx:85\`\n\n**Problem:** Vibe adaptation is triggered by checking \`newHistory.filter(m => m.role === 'user').length % 5 === 0\`. If messages are sent rapidly or state updates are batched, this count could be off.\n\n**Fix:** Track message count in a separate \`useRef\` counter that increments atomically, rather than deriving it from filtered array length.\n\n@claude Please implement this fix.`,
+                labels: ["bug"]
+              },
+
+              // TIER 3 - UX Improvements
+              {
+                title: "[UX] Add character counter and max-length warning to chat input",
+                body: `**File:** \`frontend/src/components/ChatWindow.jsx:120-127\`\n\n**Problem:** The backend rejects messages over 2000 chars, but the frontend gives no feedback. Users can type indefinitely and get a cryptic error.\n\n**Fix:**\n1. Show a character counter (e.g., \`142 / 2000\`) below the textarea\n2. Disable the send button and show a warning when over limit\n3. Style the counter red when approaching/exceeding limit\n\n@claude Please implement this fix.`,
+                labels: ["ux", "enhancement"]
+              },
+              {
+                title: "[UX] Show rate limit warning when user is throttled",
+                body: `**File:** \`frontend/src/App.jsx\` + \`backend/main.py:502\`\n\n**Problem:** When a user hits the 20 msg/min rate limit, they get a generic error with no indication to slow down.\n\n**Fix:**\n1. Check the response status for 429\n2. Show a friendly message: *"Slow down! You're moving faster than my comebacks. Try again in a moment."*\n3. Disable the send button briefly (e.g., 5 seconds)\n\n@claude Please implement this fix.`,
+                labels: ["ux", "enhancement"]
+              },
+              {
+                title: "[UX] Add fetch timeout to prevent browser hanging",
+                body: `**File:** \`frontend/src/App.jsx\` and \`ChatWindow.jsx\`\n\n**Problem:** All \`fetch()\` calls have no timeout. If the backend is slow or unresponsive, the user's browser hangs indefinitely with a spinner.\n\n**Fix:** Wrap all fetch calls with an \`AbortController\` timeout (15 seconds for chat, 5 seconds for profile/onboarding):\n\`\`\`js\nconst controller = new AbortController();\nconst timeout = setTimeout(() => controller.abort(), 15000);\ntry {\n  const res = await fetch(url, { signal: controller.signal, ...opts });\n} finally {\n  clearTimeout(timeout);\n}\n\`\`\`\n\n@claude Please implement this fix.`,
+                labels: ["ux", "bug"]
+              },
+              {
+                title: "[UX] Add React Error Boundary to catch render crashes",
+                body: `**File:** \`frontend/src/App.jsx\`\n\n**Problem:** There is no React Error Boundary. Any unhandled render error crashes the entire app with a white screen.\n\n**Fix:** Create a simple \`ErrorBoundary\` component that catches render errors and shows a friendly fallback UI instead of a blank page.\n\n@claude Please implement this fix.`,
+                labels: ["ux", "enhancement"]
+              },
+
+              // TIER 4 - Testing
+              {
+                title: "[Tests] Add backend unit tests for vibe detection logic",
+                body: `**File:** New file: \`backend/tests/test_vibe_detection.py\`\n\n**Problem:** Zero test coverage on the core logic. The vibe detection (\`detect_vibe_from_onboarding\`) and cue accumulation (\`accumulate_cues\`) functions have no tests.\n\n**Fix:** Create pytest tests covering:\n- \`detect_vibe_from_onboarding\` with varied onboarding inputs\n- \`accumulate_cues\` for deduplication and merging\n- Sarcasm intensity calculation edge cases\n- Input validation on all Pydantic models\n\nAlso add \`pytest\` and \`pytest-asyncio\` to \`requirements.txt\`.\n\n@claude Please implement these tests.`,
+                labels: ["testing", "enhancement"]
+              },
+              {
+                title: "[Tests] Add backend integration tests for API endpoints",
+                body: `**File:** New file: \`backend/tests/test_api.py\`\n\n**Problem:** No integration tests for the FastAPI endpoints. Changes to routing, validation, or response format could silently break the frontend.\n\n**Fix:** Use \`httpx.AsyncClient\` with FastAPI's \`TestClient\` to test:\n- \`GET /health\` returns 200\n- \`GET /vibes\` returns correct vibe list\n- \`POST /onboarding\` with valid/invalid payloads\n- \`POST /chat\` with mocked Groq response\n- \`PUT /adapt-vibe\` persistence\n- Rate limit enforcement on \`/chat\`\n\n@claude Please implement these tests.`,
+                labels: ["testing", "enhancement"]
+              },
+              {
+                title: "[Tests] Add frontend component tests",
+                body: `**File:** New files: \`frontend/src/__tests__/\`\n\n**Problem:** No frontend tests. Component regressions go undetected.\n\n**Fix:** Set up Vitest + React Testing Library and add tests for:\n- \`OnboardingQuiz\`: renders questions, progresses on answer, submits correctly\n- \`ChatWindow\`: renders messages, disables send when empty, shows vibe selector\n- \`App\`: loads profile on mount, shows onboarding for new sessions\n\nAdd \`vitest\`, \`@testing-library/react\`, \`@testing-library/jest-dom\` to dev dependencies.\n\n@claude Please implement this test setup and core tests.`,
+                labels: ["testing", "enhancement"]
+              },
+
+              // TIER 5 - Code Quality
+              {
+                title: "[Quality] Fix React list key anti-pattern (index as key)",
+                body: `**File:** \`frontend/src/components/ChatWindow.jsx:99\`\n\n**Problem:** Messages are rendered with \`key={i}\` (array index). This breaks React reconciliation when messages are reordered or filtered and can cause subtle rendering bugs.\n\n**Fix:** Add a unique \`id\` to each message object when it's created (e.g., \`Date.now() + Math.random()\` or a uuid). Use that as the key.\n\n@claude Please implement this fix.`,
+                labels: ["bug", "quality"]
+              },
+              {
+                title: "[Quality] Make HTTP timeouts configurable via env vars",
+                body: `**File:** \`backend/main.py:200, 224, 559\`\n\n**Problem:** Hardcoded timeout values (5s for Supabase, 30s for Groq) can't be tuned without code changes. On slow networks these may be too tight.\n\n**Fix:** Read timeouts from environment variables with sensible defaults:\n\`\`\`python\nSUPABASE_TIMEOUT = float(os.getenv("SUPABASE_TIMEOUT", "5.0"))\nGROQ_TIMEOUT = float(os.getenv("GROQ_TIMEOUT", "30.0"))\n\`\`\`\nUpdate \`.env.example\` with these new variables.\n\n@claude Please implement this fix.`,
+                labels: ["quality", "enhancement"]
+              },
+              {
+                title: "[Quality] Create frontend .env.example file",
+                body: `**Problem:** The backend has a \`.env.example\` but the frontend doesn't. New contributors don't know which environment variables are needed.\n\n**Fix:** Create \`frontend/.env.example\`:\n\`\`\`\nVITE_BACKEND_URL=http://localhost:8000\nVITE_API_KEY=your_api_key_here\n\`\`\`\n\nAlso update the root \`README.md\` (if it exists) or create one with setup instructions.\n\n@claude Please create these files.`,
+                labels: ["documentation", "quality"]
+              },
+              {
+                title: "[Quality] Implement message history cleanup for long chats",
+                body: `**File:** \`frontend/src/App.jsx\` + \`backend/main.py:537\`\n\n**Problem:** The frontend accumulates the full chat history in state and passes it all to the backend on every message. The backend only uses \`history[-6:]\` anyway. Long chats waste bandwidth and memory.\n\n**Fix:** Cap history in the frontend state at the last 20 messages. The backend already trims to 6 for the LLM context window.\n\n@claude Please implement this fix.`,
+                labels: ["quality", "performance"]
+              }
+            ];
+
+            let created = 0;
+            for (const issue of issues) {
+              try {
+                const result = await github.rest.issues.create({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  title: issue.title,
+                  body: issue.body,
+                  labels: issue.labels
+                });
+                console.log(`✅ Created #${result.data.number}: ${issue.title}`);
+                created++;
+                // Small delay to avoid rate limiting
+                await new Promise(r => setTimeout(r, 500));
+              } catch (e) {
+                console.error(`❌ Failed to create: ${issue.title} — ${e.message}`);
+              }
+            }
+            console.log(`\nCreated ${created}/${issues.length} issues.`);

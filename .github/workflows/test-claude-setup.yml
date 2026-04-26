@@ -1,0 +1,98 @@
+name: Validate Claude Setup
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/claude.yml'
+
+jobs:
+  validate-secrets:
+    runs-on: ubuntu-latest
+    name: Check Claude OAuth token is configured
+    steps:
+      - name: Verify CLAUDE_CODE_OAUTH_TOKEN secret exists
+        run: |
+          if [ -z "${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}" ]; then
+            echo "❌ CLAUDE_CODE_OAUTH_TOKEN secret is not set!"
+            echo "Run 'claude setup-token' locally and add the result to:"
+            echo "Settings → Secrets and variables → Actions → CLAUDE_CODE_OAUTH_TOKEN"
+            exit 1
+          else
+            echo "✅ CLAUDE_CODE_OAUTH_TOKEN is configured"
+          fi
+
+  create-test-issue:
+    runs-on: ubuntu-latest
+    name: Create test issue for Claude
+    needs: validate-secrets
+    permissions:
+      issues: write
+    outputs:
+      issue_number: ${{ steps.create.outputs.issue_number }}
+    steps:
+      - name: Create test issue
+        id: create
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const issue = await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: '[Test] Claude Setup Validation',
+              body: `This is an automated test issue to validate Claude Code Action is working.\n\n@claude Please reply with a one-sentence confirmation that you can read this issue and access the repository. Do not make any code changes.`,
+              labels: ['claude-test']
+            });
+            console.log(`Created issue #${issue.data.number}`);
+            core.setOutput('issue_number', issue.data.number);
+
+  wait-and-validate:
+    runs-on: ubuntu-latest
+    name: Wait for Claude response and validate
+    needs: create-test-issue
+    permissions:
+      issues: write
+    steps:
+      - name: Wait for Claude to respond (90 seconds)
+        run: sleep 90
+
+      - name: Check for Claude response
+        id: check
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const issue_number = ${{ needs.create-test-issue.outputs.issue_number }};
+            const comments = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issue_number
+            });
+            const claudeComment = comments.data.find(c =>
+              c.user.type === 'Bot' || c.body.toLowerCase().includes('claude')
+            );
+            if (claudeComment) {
+              console.log('✅ Claude responded successfully!');
+              console.log('Response preview:', claudeComment.body.substring(0, 200));
+              core.setOutput('responded', 'true');
+            } else {
+              console.log('⚠️ No Claude response yet after 90 seconds.');
+              console.log('Claude action may still be running. Check Actions tab for the claude.yml workflow.');
+              core.setOutput('responded', 'false');
+            }
+
+      - name: Close test issue
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const issue_number = ${{ needs.create-test-issue.outputs.issue_number }};
+            await github.rest.issues.update({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issue_number,
+              state: 'closed',
+              state_reason: 'completed'
+            });
+            console.log(`✅ Closed test issue #${issue_number}`);
