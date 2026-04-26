@@ -15,7 +15,6 @@ jobs:
       contents: write
       issues: write
       pull-requests: write
-    # Only run if comment contains @claude, or issue was just opened/assigned
     if: |
       (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@claude')) ||
       (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, '@claude')) ||
@@ -24,6 +23,16 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 1
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      # Configure git credentials globally so the action can run git fetch
+      # from any working directory (the action runs git from its own dir, not $GITHUB_WORKSPACE)
+      - name: Configure git credentials
+        run: |
+          git config --global url."https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/".insteadOf "https://github.com/"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git config --global user.name "github-actions[bot]"
+
       # Pinned to v1.0.107 to avoid floating @v1 bun runtime bug (github.com/anthropics/claude-code-action/issues/1205)
       - uses: anthropics/claude-code-action@v1.0.107
         with:
