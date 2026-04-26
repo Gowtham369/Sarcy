@@ -12,6 +12,12 @@ const VIBE_EMOJIS = {
 const API_KEY = import.meta.env.VITE_API_KEY || "";
 const authHeaders = { "Content-Type": "application/json", "x-api-key": API_KEY };
 
+function fetchWithTimeout(url, options = {}, ms = 5000) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), ms);
+  return fetch(url, { ...options, signal: controller.signal }).finally(() => clearTimeout(timeout));
+}
+
 export default function ChatWindow({
   history, onSend, loading, vibe, vibeLabel,
   model, models, onModelChange, onVibeChange, backendUrl
@@ -22,7 +28,7 @@ export default function ChatWindow({
   const bottomRef = useRef(null);
 
   useEffect(() => {
-    fetch(`${backendUrl}/vibes`, { headers: authHeaders })
+    fetchWithTimeout(`${backendUrl}/vibes`, { headers: authHeaders })
       .then(r => r.json())
       .then(setVibes)
       .catch(() => {});
