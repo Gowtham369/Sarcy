@@ -7,6 +7,12 @@ const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:8000";
 const API_KEY = import.meta.env.VITE_API_KEY || "";
 const authHeaders = { "Content-Type": "application/json", "x-api-key": API_KEY };
 
+function fetchWithTimeout(url, options = {}, ms = 5000) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), ms);
+  return fetch(url, { ...options, signal: controller.signal }).finally(() => clearTimeout(timeout));
+}
+
 // Generate or retrieve a persistent session ID
 function getSessionId() {
   let id = localStorage.getItem("sarcast_session_id");
@@ -31,13 +37,13 @@ export default function App() {
 
   useEffect(() => {
     // Load models
-    fetch(`${BACKEND_URL}/models`, { headers: authHeaders })
+    fetchWithTimeout(`${BACKEND_URL}/models`, { headers: authHeaders })
       .then(r => r.json())
       .then(setModels)
       .catch(() => setModels(["zephyr-7b"]));
 
     // Check if returning user has a profile
-    fetch(`${BACKEND_URL}/profile/${sessionId}`, { headers: authHeaders })
+    fetchWithTimeout(`${BACKEND_URL}/profile/${sessionId}`, { headers: authHeaders })
       .then(r => r.json())
       .then(data => {
         if (data.exists) {
@@ -55,7 +61,7 @@ export default function App() {
 
   const handleOnboardingComplete = async (answers, jokeRatings) => {
     try {
-      const res = await fetch(`${BACKEND_URL}/onboarding`, {
+      const res = await fetchWithTimeout(`${BACKEND_URL}/onboarding`, {
         method: "POST",
         headers: authHeaders,
         body: JSON.stringify({ ...answers, joke_ratings: jokeRatings, session_id: sessionId }),
@@ -83,7 +89,7 @@ export default function App() {
       let currentCues = cues;
       let currentVibe = vibe;
       if (newHistory.filter(m => m.role === "user").length % 5 === 0) {
-        const adaptRes = await fetch(`${BACKEND_URL}/adapt-vibe`, {
+        const adaptRes = await fetchWithTimeout(`${BACKEND_URL}/adapt-vibe`, {
           method: "POST",
           headers: authHeaders,
           body: JSON.stringify({
@@ -92,7 +98,7 @@ export default function App() {
             session_id: sessionId,
             existing_cues: cues,
           }),
-        });
+        }, 15000);
         const adaptData = await adaptRes.json();
         currentCues = adaptData.cues;
         currentVibe = adaptData.vibe;
@@ -103,7 +109,7 @@ export default function App() {
         }
       }
 
-      const res = await fetch(`${BACKEND_URL}/chat`, {
+      const res = await fetchWithTimeout(`${BACKEND_URL}/chat`, {
         method: "POST",
         headers: authHeaders,
         body: JSON.stringify({
@@ -115,7 +121,7 @@ export default function App() {
           cues: currentCues,
           sarcasm_intensity: sarcasmIntensity,
         }),
-      });
+      }, 15000);
       const data = await res.json();
       setHistory([...newHistory, { role: "assistant", content: data.reply }]);
     } catch {
