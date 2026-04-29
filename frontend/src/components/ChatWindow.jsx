@@ -101,8 +101,8 @@ export default function ChatWindow({
             <p>Go ahead. Ask something obvious.<br/>I dare you.</p>
           </div>
         )}
-        {history.map((msg, i) => (
-          <div key={i} className={`message message-${msg.role}`}>
+        {history.map((msg) => (
+          <div key={msg.id} className={`message message-${msg.role}`}>
             <div className="message-bubble">
               <p>{msg.content}</p>
             </div>
