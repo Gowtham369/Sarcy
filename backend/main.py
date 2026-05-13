@@ -41,6 +41,8 @@ GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
 SUPABASE_URL = os.getenv("SUPABASE_URL", "")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY", "")
 API_KEY = os.getenv("API_KEY", "")
+SUPABASE_TIMEOUT = float(os.getenv("SUPABASE_TIMEOUT", "5.0"))
+GROQ_TIMEOUT = float(os.getenv("GROQ_TIMEOUT", "30.0"))
 
 
 @app.on_event("startup")
@@ -205,7 +207,7 @@ async def get_profile(session_id: str) -> dict | None:
         "Authorization": f"Bearer {SUPABASE_KEY}",
     }
     try:
-        async with httpx.AsyncClient(timeout=5.0) as client:
+        async with httpx.AsyncClient(timeout=SUPABASE_TIMEOUT) as client:
             res = await client.get(url, headers=headers)
             if res.status_code != 200:
                 logger.warning("Supabase get_profile failed: %s", res.status_code)
@@ -229,7 +231,7 @@ async def upsert_profile(session_id: str, profile: dict):
     }
     payload = {"session_id": session_id, **profile}
     try:
-        async with httpx.AsyncClient(timeout=5.0) as client:
+        async with httpx.AsyncClient(timeout=SUPABASE_TIMEOUT) as client:
             res = await client.post(url, json=payload, headers=headers)
             if res.status_code >= 400:
                 logger.warning("Supabase upsert failed %s: %s", res.status_code, res.text[:200])
@@ -570,7 +572,7 @@ async def chat(req: ChatRequest, request: Request, x_api_key: str = Header(defau
         "top_p": 0.9,
     }
 
-    async with httpx.AsyncClient(timeout=30.0) as client:
+    async with httpx.AsyncClient(timeout=GROQ_TIMEOUT) as client:
         try:
             resp = await client.post("https://api.groq.com/openai/v1/chat/completions", json=payload, headers=headers)
             resp.raise_for_status()
