@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import OnboardingQuiz from "./components/OnboardingQuiz";
 import ChatWindow from "./components/ChatWindow";
 import "./App.css";
@@ -34,6 +34,7 @@ export default function App() {
   const [cues, setCues] = useState([]);
   const [sarcasmIntensity, setSarcasmIntensity] = useState(5);
   const [sessionId] = useState(getSessionId);
+  const userMsgCountRef = useRef(0);
 
   useEffect(() => {
     // Load models
@@ -83,12 +84,13 @@ export default function App() {
     const newHistory = [...history, userMsg];
     setHistory(newHistory);
     setLoading(true);
+    const msgCount = ++userMsgCountRef.current;
 
     try {
       // Re-read vibe every 5 user messages
       let currentCues = cues;
       let currentVibe = vibe;
-      if (newHistory.filter(m => m.role === "user").length % 5 === 0) {
+      if (msgCount % 5 === 0) {
         const adaptRes = await fetchWithTimeout(`${BACKEND_URL}/adapt-vibe`, {
           method: "POST",
           headers: authHeaders,
