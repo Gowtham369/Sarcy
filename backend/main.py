@@ -10,6 +10,7 @@ import os
 import json
 import random
 import re
+from urllib.parse import quote
 import logging
 
 load_dotenv()
@@ -198,7 +199,7 @@ MODELS = {
 async def get_profile(session_id: str) -> dict | None:
     if not SUPABASE_URL:
         return None
-    url = f"{SUPABASE_URL}/rest/v1/vibe_profiles?session_id=eq.{session_id}&select=*"
+    url = f"{SUPABASE_URL}/rest/v1/vibe_profiles?session_id=eq.{quote(session_id)}&select=*"
     headers = {
         "apikey": SUPABASE_KEY,
         "Authorization": f"Bearer {SUPABASE_KEY}",
