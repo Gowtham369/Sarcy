@@ -71,7 +71,14 @@ export default function ChatWindow({
                   <button
                     key={key}
                     className={`vibe-option ${vibe === key ? "active" : ""}`}
-                    onClick={() => { onVibeChange(key, label); setShowVibeMenu(false); }}
+                    onClick={() => {
+                      onVibeChange(key, label);
+                      setShowVibeMenu(false);
+                      fetchWithTimeout(
+                        `${backendUrl}/adapt-vibe`,
+                        { method: "POST", headers: authHeaders, body: JSON.stringify({ vibe: key, confidence: 1.0 }) }
+                      ).catch(() => {});
+                    }}
                   >
                     {VIBE_EMOJIS[key]} {label}
                   </button>
