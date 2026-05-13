@@ -121,7 +121,7 @@ export default function App() {
           message,
           vibe: currentVibe,
           model,
-          history,
+          history: newHistory,
           session_id: sessionId,
           cues: currentCues,
           sarcasm_intensity: sarcasmIntensity,
