@@ -9,6 +9,8 @@ const VIBE_EMOJIS = {
   gen_z: "💅",
 };
 
+const MAX_LENGTH = 2000;
+
 const authHeaders = { "Content-Type": "application/json" };
 
 function fetchWithTimeout(url, options = {}, ms = 5000) {
@@ -37,8 +39,10 @@ export default function ChatWindow({
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [history, loading]);
 
+  const overLimit = input.length > MAX_LENGTH;
+
   const handleSend = () => {
-    if (!input.trim() || loading) return;
+    if (!input.trim() || loading || overLimit) return;
     onSend(input.trim());
     setInput("");
   };
@@ -129,18 +133,23 @@ export default function ChatWindow({
 
       {/* Input */}
       <div className="chat-input-area">
-        <textarea
-          className="chat-input"
-          value={input}
-          onChange={e => setInput(e.target.value)}
-          onKeyDown={handleKey}
-          placeholder="Ask something. I'll judge you for it."
-          rows={1}
-        />
+        <div className="chat-input-wrapper">
+          <textarea
+            className={`chat-input${overLimit ? " chat-input-over" : ""}`}
+            value={input}
+            onChange={e => setInput(e.target.value)}
+            onKeyDown={handleKey}
+            placeholder="Ask something. I'll judge you for it."
+            rows={1}
+          />
+          <span className={`char-counter${input.length >= 1800 ? overLimit ? " over" : " warn" : ""}`}>
+            {input.length} / {MAX_LENGTH}
+          </span>
+        </div>
         <button
           className="send-btn"
           onClick={handleSend}
-          disabled={loading || !input.trim()}
+          disabled={loading || !input.trim() || overLimit}
         >
           ↑
         </button>
