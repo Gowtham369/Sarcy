@@ -34,6 +34,7 @@ export default function App() {
   const [sarcasmIntensity, setSarcasmIntensity] = useState(5);
   const [sessionId] = useState(getSessionId);
   const [vibeDetectionFailed, setVibeDetectionFailed] = useState(false);
+  const [rateLimited, setRateLimited] = useState(false);
   const userMsgCountRef = useRef(0);
 
   useEffect(() => {
@@ -126,6 +127,16 @@ export default function App() {
           sarcasm_intensity: sarcasmIntensity,
         }),
       }, 15000);
+      if (res.status === 429) {
+        setHistory([...newHistory, {
+          id: crypto.randomUUID(),
+          role: "assistant",
+          content: "Slow down! You're moving faster than my comebacks. Try again in a moment."
+        }]);
+        setRateLimited(true);
+        setTimeout(() => setRateLimited(false), 5000);
+        return;
+      }
       const data = await res.json();
       setHistory([...newHistory, { id: crypto.randomUUID(), role: "assistant", content: data.reply }]);
     } catch (err) {
@@ -166,6 +177,7 @@ export default function App() {
           history={history}
           onSend={handleSend}
           loading={loading}
+          rateLimited={rateLimited}
           vibe={vibe}
           vibeLabel={vibeLabel}
           model={model}
