@@ -84,7 +84,7 @@ export default function App() {
 
   const handleSend = async (message) => {
     const userMsg = { id: crypto.randomUUID(), role: "user", content: message };
-    const newHistory = [...history, userMsg];
+    const newHistory = [...history, userMsg].slice(-20);
     setHistory(newHistory);
     setLoading(true);
     const msgCount = ++userMsgCountRef.current;
@@ -132,20 +132,20 @@ export default function App() {
           id: crypto.randomUUID(),
           role: "assistant",
           content: "Slow down! You're moving faster than my comebacks. Try again in a moment."
-        }]);
+        }].slice(-20));
         setRateLimited(true);
         setTimeout(() => setRateLimited(false), 5000);
         return;
       }
       const data = await res.json();
-      setHistory([...newHistory, { id: crypto.randomUUID(), role: "assistant", content: data.reply }]);
+      setHistory([...newHistory, { id: crypto.randomUUID(), role: "assistant", content: data.reply }].slice(-20));
     } catch (err) {
       console.error("Chat request failed:", err);
       setHistory([...newHistory, {
         id: crypto.randomUUID(),
         role: "assistant",
         content: "Even the server is too tired to be sarcastic right now. Try again."
-      }]);
+      }].slice(-20));
     } finally {
       setLoading(false);
     }
