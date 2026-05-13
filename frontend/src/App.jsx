@@ -79,7 +79,7 @@ export default function App() {
   };
 
   const handleSend = async (message) => {
-    const userMsg = { role: "user", content: message };
+    const userMsg = { id: crypto.randomUUID(), role: "user", content: message };
     const newHistory = [...history, userMsg];
     setHistory(newHistory);
     setLoading(true);
@@ -123,9 +123,10 @@ export default function App() {
         }),
       }, 15000);
       const data = await res.json();
-      setHistory([...newHistory, { role: "assistant", content: data.reply }]);
+      setHistory([...newHistory, { id: crypto.randomUUID(), role: "assistant", content: data.reply }]);
     } catch {
       setHistory([...newHistory, {
+        id: crypto.randomUUID(),
         role: "assistant",
         content: "Even the server is too tired to be sarcastic right now. Try again."
       }]);
