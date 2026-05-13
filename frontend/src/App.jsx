@@ -4,8 +4,7 @@ import ChatWindow from "./components/ChatWindow";
 import "./App.css";
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:8000";
-const API_KEY = import.meta.env.VITE_API_KEY || "";
-const authHeaders = { "Content-Type": "application/json", "x-api-key": API_KEY };
+const authHeaders = { "Content-Type": "application/json" };
 
 function fetchWithTimeout(url, options = {}, ms = 5000) {
   const controller = new AbortController();

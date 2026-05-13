@@ -9,8 +9,7 @@ const VIBE_EMOJIS = {
   gen_z: "💅",
 };
 
-const API_KEY = import.meta.env.VITE_API_KEY || "";
-const authHeaders = { "Content-Type": "application/json", "x-api-key": API_KEY };
+const authHeaders = { "Content-Type": "application/json" };
 
 function fetchWithTimeout(url, options = {}, ms = 5000) {
   const controller = new AbortController();
