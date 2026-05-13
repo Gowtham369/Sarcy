@@ -34,6 +34,7 @@ export default function App() {
   const [cues, setCues] = useState([]);
   const [sarcasmIntensity, setSarcasmIntensity] = useState(5);
   const [sessionId] = useState(getSessionId);
+  const [vibeDetectionFailed, setVibeDetectionFailed] = useState(false);
   const userMsgCountRef = useRef(0);
 
   useEffect(() => {
@@ -41,7 +42,7 @@ export default function App() {
     fetchWithTimeout(`${BACKEND_URL}/models`, { headers: authHeaders })
       .then(r => r.json())
       .then(setModels)
-      .catch(() => setModels(["zephyr-7b"]));
+      .catch((err) => { console.error("Failed to load models:", err); setModels(["zephyr-7b"]); });
 
     // Check if returning user has a profile
     fetchWithTimeout(`${BACKEND_URL}/profile/${sessionId}`, { headers: authHeaders })
@@ -57,7 +58,7 @@ export default function App() {
           setPhase("onboarding");
         }
       })
-      .catch(() => setPhase("onboarding"));
+      .catch((err) => { console.error("Failed to load profile:", err); setPhase("onboarding"); });
   }, [sessionId]);
 
   const handleOnboardingComplete = async (answers, jokeRatings) => {
@@ -72,9 +73,11 @@ export default function App() {
       setVibeLabel(data.label);
       setSarcasmIntensity(data.sarcasm_intensity);
       setCues(data.cues || []);
-    } catch {
+    } catch (err) {
+      console.error("Vibe detection failed:", err);
       setVibe("dry");
       setVibeLabel("Dry & Deadpan");
+      setVibeDetectionFailed(true);
     }
     setPhase("chat");
   };
@@ -126,7 +129,8 @@ export default function App() {
       }, 15000);
       const data = await res.json();
       setHistory([...newHistory, { id: crypto.randomUUID(), role: "assistant", content: data.reply }]);
-    } catch {
+    } catch (err) {
+      console.error("Chat request failed:", err);
       setHistory([...newHistory, {
         id: crypto.randomUUID(),
         role: "assistant",
@@ -153,6 +157,12 @@ export default function App() {
       {phase === "onboarding" ? (
         <OnboardingQuiz onComplete={handleOnboardingComplete} backendUrl={BACKEND_URL} />
       ) : (
+        <>
+        {vibeDetectionFailed && (
+          <div className="vibe-error-banner">
+            Vibe detection failed — defaulting to Dry &amp; Deadpan.
+          </div>
+        )}
         <ChatWindow
           history={history}
           onSend={handleSend}
@@ -168,6 +178,7 @@ export default function App() {
           onVibeChange={(v, l) => { setVibe(v); setVibeLabel(l); }}
           backendUrl={BACKEND_URL}
         />
+        </>
       )}
     </div>
   );
