@@ -20,7 +20,7 @@ function fetchWithTimeout(url, options = {}, ms = 5000) {
 }
 
 export default function ChatWindow({
-  history, onSend, loading, vibe, vibeLabel,
+  history, onSend, loading, rateLimited, vibe, vibeLabel,
   model, models, onModelChange, onVibeChange, backendUrl
 }) {
   const [input, setInput] = useState("");
@@ -42,7 +42,7 @@ export default function ChatWindow({
   const overLimit = input.length > MAX_LENGTH;
 
   const handleSend = () => {
-    if (!input.trim() || loading || overLimit) return;
+    if (!input.trim() || loading || rateLimited || overLimit) return;
     onSend(input.trim());
     setInput("");
   };
@@ -149,7 +149,7 @@ export default function ChatWindow({
         <button
           className="send-btn"
           onClick={handleSend}
-          disabled={loading || !input.trim() || overLimit}
+          disabled={loading || rateLimited || !input.trim() || overLimit}
         >
           ↑
         </button>
