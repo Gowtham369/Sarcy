@@ -17,6 +17,13 @@ load_dotenv()
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
 logger = logging.getLogger("sarcast")
 
+UUID_RE = re.compile(r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$')
+
+
+def _validate_session_id(session_id: str):
+    if not UUID_RE.match(session_id):
+        raise HTTPException(status_code=400, detail="Invalid session ID")
+
 limiter = Limiter(key_func=get_remote_address)
 app = FastAPI()
 app.state.limiter = limiter
@@ -448,6 +455,7 @@ def get_jokes(x_api_key: str = Header(default="")):
 @app.get("/profile/{session_id}")
 async def get_user_profile(session_id: str, x_api_key: str = Header(default="")):
     verify_api_key(x_api_key)
+    _validate_session_id(session_id)
     profile = await get_profile(session_id)
     if not profile:
         return {"exists": False}
@@ -456,6 +464,7 @@ async def get_user_profile(session_id: str, x_api_key: str = Header(default=""))
 @app.post("/onboarding")
 async def onboarding(req: OnboardingRequest, x_api_key: str = Header(default="")):
     verify_api_key(x_api_key)
+    _validate_session_id(req.session_id)
     answers = {k: getattr(req, k) for k in ["q1","q2","q3","q4","q5","q6"]}
     vibe, intensity, cues = detect_vibe_from_onboarding(answers, req.joke_ratings)
 
@@ -478,6 +487,8 @@ async def onboarding(req: OnboardingRequest, x_api_key: str = Header(default="")
 @app.post("/adapt-vibe")
 async def adapt_vibe(req: AdaptVibeRequest, x_api_key: str = Header(default="")):
     verify_api_key(x_api_key)
+    if req.session_id:
+        _validate_session_id(req.session_id)
     new_vibe, updated_cues = accumulate_cues(req.existing_cues, req.history, req.current_vibe)
 
     # Update confidence based on cue count
@@ -502,6 +513,8 @@ async def adapt_vibe(req: AdaptVibeRequest, x_api_key: str = Header(default=""))
 @limiter.limit("20/minute")
 async def chat(req: ChatRequest, request: Request, x_api_key: str = Header(default="")):
     verify_api_key(x_api_key)
+    if req.session_id:
+        _validate_session_id(req.session_id)
     if req.vibe not in VIBE_PROFILES:
         raise HTTPException(status_code=400, detail="Unknown vibe")
     if req.model not in MODELS:
