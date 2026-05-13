@@ -207,8 +207,15 @@
   background: var(--bg);
 }
 
-.chat-input {
+.chat-input-wrapper {
   flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.chat-input {
+  width: 100%;
   background: var(--surface2);
   border: 1px solid var(--border);
   border-radius: var(--radius);
@@ -228,6 +235,27 @@
 
 .chat-input::placeholder {
   color: var(--text-muted);
+}
+
+.chat-input-over {
+  border-color: #e05555 !important;
+}
+
+.char-counter {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  text-align: right;
+  transition: color 0.2s;
+}
+
+.char-counter.warn {
+  color: #e0a855;
+}
+
+.char-counter.over {
+  color: #e05555;
+  font-weight: 600;
 }
 
 .send-btn {
